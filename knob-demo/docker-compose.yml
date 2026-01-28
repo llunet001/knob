@@ -1,0 +1,53 @@
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - "4566:4566"   # AWS API
+      - "8080:8080"   # Web UI
+      - "2222:2222"   # SSH access placeholder
+    environment:
+      - SERVICES=s3,ec2
+      - DEFAULT_REGION=us-east-1
+      - LOCALSTACK_API_KEY=YOUR_API_KEY   # Required for Pro/Starter
+      - EC2_VM_MANAGER=docker
+      - LOCALSTACK_WEB_UI=true
+    volumes:
+      - ./localstack-init/ready.d:/etc/localstack/init/ready.d
+
+  write:
+    build: ./services/write
+    ports:
+      - "5001:5001"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - localstack
+
+  read:
+    build: ./services/read
+    ports:
+      - "5002:5002"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - localstack
+
+  reencrypt:
+    build: ./services/reencrypt
+    ports:
+      - "5003:5003"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - localstack
+  client_db:
+    build: ./services/client_db
+    ports:
+      - "5004:5004"

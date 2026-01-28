@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Knob Client</title>
+<style>
+  /* EDF Design Authority - Official Brand Colors */
+  :root {
+    --edf-orange: #FF6200;
+    --edf-blue: #000091;
+    --edf-dark-blue: #00006F;
+    --edf-light-grey: #F6F6F6;
+    --edf-medium-grey: #E5E5E5;
+    --edf-dark-grey: #666666;
+    --edf-text: #161616;
+  }
+  
+  body { 
+    font-family: 'EDF Plum', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--edf-light-grey);
+    color: var(--edf-text);
+  }
+  
+  .container { 
+    max-width: 1200px; 
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  h1 { 
+    background: var(--edf-blue);
+    color: white;
+    margin: 0 -20px 0 -20px;
+    padding: 24px 32px;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  
+  .section { 
+    margin: 20px 0; 
+    padding: 24px; 
+    border: none;
+    border-radius: 0;
+    background: white; 
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  
+  .section h3 { 
+    margin-top: 0; 
+    color: var(--edf-blue);
+    font-size: 20px;
+    font-weight: 700;
+    border-bottom: 3px solid var(--edf-orange);
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .form-group { margin: 16px 0; }
+  
+  label { 
+    display: inline-block; 
+    width: 140px; 
+    font-weight: 600;
+    color: var(--edf-text);
+    font-size: 14px;
+  }
+  
+  input, select { 
+    padding: 12px 16px;
+    margin-right: 12px;
+    border: 2px solid var(--edf-medium-grey);
+    border-radius: 0;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  
+  input:focus, select:focus { 
+    outline: none;
+    border-color: var(--edf-blue);
+    box-shadow: 0 0 0 3px rgba(0,0,145,0.1);
+  }
+  
+  button { 
+    padding: 14px 32px;
+    background: var(--edf-orange);
+    color: white;
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+    margin: 8px 4px;
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  
+  button:hover { 
+    background: #E55900;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(255,98,0,0.3);
+  }
+  
+  .result { 
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--edf-light-grey);
+    border-left: 4px solid var(--edf-blue);
+    border-radius: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  
+  .error { 
+    border-left-color: #D32F2F;
+    background: #FFEBEE;
+  }
+  
+  .success { 
+    border-left-color: #388E3C;
+    background: #E8F5E9;
+  }
+  
+  .login-container { 
+    max-width: 400px; 
+    margin: 60px auto;
+    padding: 40px;
+    background: white;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.1);
+  }
+  
+  .login-container h2 { 
+    color: var(--edf-blue);
+    text-align: center;
+    margin-top: 0;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  
+  .browser-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 2fr; 
+    gap: 20px;
+  }
+  
+  .prefix-list {
+    border: 1px solid var(--edf-medium-grey);
+    border-radius: 0;
+    overflow-y: auto;
+    max-height: 500px;
+    background: white;
+  }
+  
+  .prefix-list li {
+    list-style: none;
+    padding: 12px;
+    margin: 0;
+    border-bottom: 1px solid var(--edf-medium-grey);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .prefix-list li:hover {
+    background: var(--edf-light-grey);
+    border-left: 4px solid var(--edf-orange);
+    padding-left: 8px;
+  }
+  
+  .prefix-list li.selected {
+    background: rgba(0,0,145,0.1);
+    border-left: 4px solid var(--edf-blue);
+    padding-left: 8px;
+    font-weight: 600;
+  }
+  
+  .file-display {
+    border: 1px solid var(--edf-medium-grey);
+    border-radius: 0;
+    padding: 16px;
+    background: white;
+    min-height: 300px;
+    overflow: auto;
+  }
+  
+  .file-display p {
+    margin: 8px 0;
+    font-size: 13px;
+    word-break: break-all;
+  }
+  
+  .file-display .error-msg {
+    color: #D32F2F;
+    font-weight: 600;
+  }
+  
+  .gk-status {
+    background: var(--edf-light-grey);
+    padding: 12px 16px;
+    border-radius: 0;
+    margin: 16px 0;
+    border-left: 4px solid var(--edf-orange);
+    font-size: 14px;
+  }
+  
+  .gk-status strong {
+    color: var(--edf-blue);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Login Form -->
+  <div id="loginSection" class="login-container">
+    <h2>🔐 Knob Client Login</h2>
+    <div class="form-group">
+      <label>Client:</label>
+      <select id="clientSelect">
+        <option value="">-- Select Client --</option>
+        <option value="client1">Client 1</option>
+        <option value="client2">Client 2</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Password:</label>
+      <input type="password" id="passwordInput" placeholder="Enter password" />
+    </div>
+    <button onclick="login()" style="width: 100%; box-sizing: border-box;">Login</button>
+    <div class="result" id="loginResult"></div>
+  </div>
+
+  <!-- Main Interface (hidden until logged in) -->
+  <div id="mainSection" style="display: none;">
+    <h1>Knob Client - Logged in as <span id="clientDisplay"></span></h1>
+    
+    <div class="section">
+      <h3>📂 Browse & Read Files</h3>
+      <div class="gk-status">
+        <strong>Current GK:</strong> <span id="gkDisplay">1234567890123456</span>
+        <button onclick="refreshGK()" style="margin-left: 16px; padding: 10px 20px; font-size: 12px;">🔄 Refresh GK</button>
+      </div>
+      
+      <div class="browser-grid">
+        <div>
+          <strong style="display: block; margin-bottom: 8px; color: var(--edf-blue);">Prefixes</strong>
+          <ul id="prefixList" class="prefix-list"></ul>
+        </div>
+        <div>
+          <strong style="display: block; margin-bottom: 8px; color: var(--edf-blue);">File Content</strong>
+          <div class="file-display" id="fileDisplay">
+            <p style="color: var(--edf-dark-grey); font-style: italic;">Select a prefix to view files</p>
+          </div>
+        </div>
+      </div>
+      
+      <button onclick="logout()" style="margin-top: 20px;">Logout</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentClientId = null;
+let currentGK = null;
+let allPrefixes = [];
+
+async function login() {
+  const clientSelect = document.getElementById('clientSelect');
+  const passwordInput = document.getElementById('passwordInput');
+  const loginResult = document.getElementById('loginResult');
+  
+  const clientId = clientSelect.value;
+  const password = passwordInput.value;
+  
+  if (!clientId) { 
+    loginResult.textContent = '❌ Please select a client'; 
+    loginResult.classList.add('error');
+    return; 
+  }
+  if (!password) { 
+    loginResult.textContent = '❌ Please enter a password'; 
+    loginResult.classList.add('error');
+    return; 
+  }
+  
+  loginResult.textContent = '⏳ Logging in...';
+  loginResult.classList.remove('error');
+  
+  try {
+    const form = new FormData();
+    form.append('client_id', clientId);
+    form.append('password', password);
+    
+    const resp = await fetch('http://localhost:5004/login', { method: 'POST', body: form });
+    const data = await resp.json();
+    
+    if (!resp.ok) {
+      loginResult.textContent = '❌ ' + (data.error || 'Login failed');
+      loginResult.classList.add('error');
+      return;
+    }
+    
+    currentClientId = clientId;
+    currentGK = data.current_gk;
+    
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('mainSection').style.display = 'block';
+    document.getElementById('clientDisplay').textContent = clientId;
+    document.getElementById('gkDisplay').textContent = currentGK;
+    
+    loadPrefixes();
+  } catch (e) {
+    loginResult.textContent = '❌ Error: ' + e.message;
+    loginResult.classList.add('error');
+  }
+}
+
+async function loadPrefixes() {
+  try {
+    const resp = await fetch('http://localhost:5002/list');
+    const data = await resp.json();
+    
+    const allKeys = data.files || [];
+    allPrefixes = Array.from(new Set(
+      allKeys
+        .filter(k => k.includes('/') && !k.startsWith('_'))
+        .map(k => k.split('/')[0])
+    )).sort();
+    
+    const prefixList = document.getElementById('prefixList');
+    prefixList.innerHTML = '';
+    
+    allPrefixes.forEach(prefix => {
+      const li = document.createElement('li');
+      li.textContent = '📁 ' + prefix;
+      li.onclick = () => selectPrefix(prefix, li);
+      prefixList.appendChild(li);
+    });
+  } catch (e) {
+    console.error('Error loading prefixes:', e);
+  }
+}
+
+function selectPrefix(prefix, liElement) {
+  // Update UI
+  document.querySelectorAll('#prefixList li').forEach(li => li.classList.remove('selected'));
+  liElement.classList.add('selected');
+  
+  // Read the prefix
+  readPrefix(prefix);
+}
+
+async function readPrefix(prefix) {
+  const fileDisplay = document.getElementById('fileDisplay');
+  fileDisplay.innerHTML = '<p style="color: var(--edf-dark-grey); font-style: italic;">⏳ Reading...</p>';
+  
+  try {
+    const form = new FormData();
+    form.append('filename', prefix + '.bin');
+    form.append('GK', currentGK);
+    
+    const resp = await fetch('http://localhost:5002/read', { method: 'POST', body: form });
+    
+    if (!resp.ok) {
+      const error = await resp.json();
+      fileDisplay.innerHTML = `<p class="error-msg">❌ Failed to read: ${error.error || 'Unknown error'}</p>`;
+      return;
+    }
+    
+    const blob = await resp.blob();
+    const imageUrl = window.URL.createObjectURL(blob);
+    
+    fileDisplay.innerHTML = `
+      <p><strong>📄 Prefix: ${prefix}</strong></p>
+      <hr style="border: none; border-top: 1px solid var(--edf-medium-grey); margin: 12px 0;">
+      <img src="${imageUrl}" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; margin-top: 12px;" />
+    `;
+  } catch (e) {
+    fileDisplay.innerHTML = `<p class="error-msg">❌ Error: ${e.message}</p>`;
+  }
+}
+
+function logout() {
+  currentClientId = null;
+  currentGK = null;
+  allPrefixes = [];
+  
+  document.getElementById('loginSection').style.display = 'block';
+  document.getElementById('mainSection').style.display = 'none';
+  document.getElementById('clientSelect').value = '';
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('loginResult').textContent = '';
+  document.getElementById('loginResult').classList.remove('error');
+}
+
+async function refreshGK() {
+  try {
+    const resp = await fetch(`http://localhost:5004/clients/${currentClientId}`);
+    const data = await resp.json();
+    
+    if (resp.ok && data.current_gk) {
+      currentGK = data.current_gk;
+      document.getElementById('gkDisplay').textContent = currentGK;
+      console.log('✅ GK refreshed:', currentGK);
+      
+      // Also refresh the bucket/prefixes
+      await loadPrefixes();
+      console.log('✅ Prefixes refreshed');
+    } else {
+      console.error('Failed to refresh GK:', data.error || 'Unknown error');
+    }
+  } catch (e) {
+    console.error('Error refreshing GK:', e);
+  }
+}
+</script>
+</body>
+</html>

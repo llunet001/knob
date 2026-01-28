@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h2>Knob Image Bank</h2>
+
+<h3>Upload</h3>
+<input type="file" id="file">
+<button onclick="upload()">Upload</button>
+
+<h3>Read</h3>
+<input type="text" id="name" placeholder="filename">
+<button onclick="read()">Read</button>
+
+<h3>Re-encrypt</h3>
+<button onclick="reencrypt()">Re-encrypt</button>
+
+<script>
+function upload() {
+  let f = document.getElementById("file").files[0]
+  let form = new FormData()
+  form.append("file", f)
+  fetch("http://localhost:5001/write", { method: "POST", body: form })
+}
+
+function read() {
+  let n = document.getElementById("name").value
+  window.open("http://localhost:5002/read/" + n)
+}
+
+function reencrypt() {
+  let n = document.getElementById("name").value
+  fetch("http://localhost:5003/reencrypt/" + n)
+}
+</script>
+</body>
+</html>

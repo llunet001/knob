@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Knob Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* EDF Design Authority - Official Brand Colors */
+  :root {
+    --edf-orange: #FF6200;
+    --edf-blue: #000091;
+    --edf-dark-blue: #00006F;
+    --edf-light-grey: #F6F6F6;
+    --edf-medium-grey: #E5E5E5;
+    --edf-dark-grey: #666666;
+    --edf-text: #161616;
+  }
+  
+  body { 
+    font-family: 'EDF Plum', Arial, sans-serif; 
+    margin: 0; 
+    padding: 0; 
+    height: 100vh; 
+    background: var(--edf-light-grey);
+    color: var(--edf-text);
+    overflow: hidden;
+  }
+  
+  .container { 
+    max-width: none; 
+    width: 100%; 
+    height: 100%; 
+    margin: 0; 
+    display: flex; 
+    flex-direction: column; 
+  }
+  
+  h1 { 
+    background: var(--edf-blue);
+    color: white; 
+    margin: 0; 
+    padding: 24px 32px; 
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+  
+  .section { 
+    margin: 0; 
+    padding: 24px;
+    border: none; 
+    border-radius: 0;
+    background: white; 
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); 
+  }
+  
+  .section h3 { 
+    margin-top: 0; 
+    color: var(--edf-blue);
+    font-size: 20px;
+    font-weight: 700;
+    border-bottom: 3px solid var(--edf-orange);
+    padding-bottom: 8px; 
+    margin-bottom: 12px;
+    letter-spacing: -0.3px;
+  }
+  
+  .form-group { margin: 16px 0; }
+  
+  label { 
+    display: inline-block; 
+    width: 160px;
+    font-weight: 600;
+    color: var(--edf-text);
+    font-size: 14px;
+  }
+  
+  input { 
+    padding: 12px 16px;
+    margin-right: 12px;
+    border: 2px solid var(--edf-medium-grey);
+    border-radius: 0;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  
+  input:focus { 
+    outline: none; 
+    border-color: var(--edf-blue);
+    box-shadow: 0 0 0 3px rgba(0,0,145,0.1);
+  }
+  
+  button { 
+    padding: 14px 32px;
+    background: var(--edf-orange);
+    color: white; 
+    border: none; 
+    border-radius: 0;
+    cursor: pointer; 
+    margin: 8px 4px;
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  
+  button:hover { 
+    background: #E55900;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(255,98,0,0.3);
+  }
+  
+  .result { 
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--edf-light-grey);
+    border-left: 4px solid var(--edf-blue);
+    border-radius: 0;
+    white-space: pre-wrap; 
+    word-break: break-all; 
+    font-family: 'Courier New', monospace; 
+    font-size: 13px;
+    line-height: 1.6;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  
+  .error { 
+    border-left-color: #D32F2F;
+    background: #FFEBEE;
+  }
+  
+  .success { 
+    border-left-color: #388E3C;
+    background: #E8F5E9;
+  }
+  
+  .grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    flex: 1; 
+    padding: 20px;
+    overflow-y: auto;
+  }
+  
+  ul { list-style: none; padding: 0; margin: 0; }
+  
+  ul li:hover { background: var(--edf-light-grey) !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Knob Admin Dashboard</h1>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr; grid-auto-rows: auto;">
+    <!-- Top-Left: Upload with progress/timer/stats -->
+    <div class="section">
+      <h3>📁 Upload Folder</h3>
+      <div class="form-group">
+        <label>Select Folder:</label>
+        <input type="file" id="folderInput" webkitdirectory directory multiple />
+      </div>
+      <div class="form-group">
+        <label>Group Key (GK):</label>
+        <input type="text" id="gk_admin_upload" placeholder="16 characters" value="1234567890123456" maxlength="16" readonly />
+      </div>
+      <div class="form-group">
+        <label>Progress:</label>
+        <div style="background:#eee; width:100%; height:10px; border-radius:4px;">
+          <div id="uploadProgressBar" style="background:#4CAF50; width:0%; height:10px; border-radius:4px;"></div>
+        </div>
+        <div id="uploadTimer" style="margin-top:6px; font-size:12px; color:#666;">Elapsed: 0.0s</div>
+        <canvas id="uploadChart" style="max-height:250px; margin-top:8px;"></canvas>
+      </div>
+      <button onclick="uploadFolder()">Upload All Files</button>
+      <div class="result" id="upload_folder_result"></div>
+    </div>
+
+    <!-- Top-Right: Clients Approved/Revoked -->
+    <div class="section">
+      <h3>👥 Clients</h3>
+      <div style="display:flex; gap:20px;">
+        <div style="flex:1;">
+          <h4>Approved</h4>
+          <ul id="approvedList" style="list-style:none; padding:0;"></ul>
+        </div>
+        <div style="flex:1;">
+          <h4>Revoked</h4>
+          <ul id="revokedList" style="list-style:none; padding:0;"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom-Left: Re-encrypt with progress/timer/stats -->
+    <div class="section">
+      <h3>🔄 Re-encrypt All Files</h3>
+      <div class="form-group">
+        <label>Old Group Key:</label>
+        <input type="text" id="old_gk_all" placeholder="16 characters" value="1234567890123456" maxlength="16" readonly />
+      </div>
+      <div class="form-group">
+        <label>New Group Key:</label>
+        <input type="text" id="new_gk_all" placeholder="16 characters" value="abcdefghijklmnop" maxlength="16" />
+      </div>
+      <div class="form-group">
+        <label>Progress:</label>
+        <div style="background:#eee; width:100%; height:10px; border-radius:4px;">
+          <div id="reencryptProgressBar" style="background:#1976d2; width:0%; height:10px; border-radius:4px;"></div>
+        </div>
+        <div id="reencryptTimer" style="margin-top:6px; font-size:12px; color:#666;">Elapsed: 0.0s</div>
+        <canvas id="reencryptChart" style="max-height:250px; margin-top:8px;"></canvas>
+      </div>
+      <button onclick="reencryptAll()">Re-encrypt All</button>
+      <div class="result" id="reencrypt_all_result"></div>
+    </div>
+
+    <!-- Bottom-Right: Bucket Preview -->
+    <div class="section">
+      <h3>🪣 Bucket Preview</h3>
+      <button onclick="loadBuckets()">Refresh</button>
+      <div style="display:flex; gap:10px; margin-top:10px; height:250px;">
+        <div style="flex:1; border:1px solid #ddd; border-radius:3px; overflow-y:auto; padding:8px; background:#fff;">
+          <strong>Buckets</strong>
+          <ul id="bucketList" style="list-style:none; padding:0; margin-top:8px;"></ul>
+        </div>
+        <div style="flex:1; border:1px solid #ddd; border-radius:3px; overflow-y:auto; padding:8px; background:#fff;">
+          <strong>Prefixes</strong>
+          <ul id="prefixList" style="list-style:none; padding:0; margin-top:8px;"></ul>
+        </div>
+        <div style="flex:2; border:1px solid #ddd; border-radius:3px; overflow-y:auto; padding:8px; background:#fff;">
+          <strong>Objects</strong>
+          <ul id="objectList" style="list-style:none; padding:0; margin-top:8px; font-family:monospace; font-size:11px;"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Charts setup
+let uploadChart, reencryptChart;
+
+async function syncAdminGK() {
+  try {
+    // Fetch current GK from database (use client1 as reference)
+    const resp = await fetch('http://localhost:5004/clients/client1');
+    const data = await resp.json();
+    if (resp.ok && data.current_gk) {
+      document.getElementById('gk_admin_upload').value = data.current_gk;
+      document.getElementById('old_gk_all').value = data.current_gk;
+      console.log('✅ Admin GK synced from database:', data.current_gk);
+    }
+  } catch (e) {
+    console.error('Error syncing admin GK:', e);
+  }
+}
+
+function createChart(canvasId) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'CPU %',
+          data: [],
+          borderColor: '#FF6384',
+          backgroundColor: 'rgba(255, 99, 132, 0.1)',
+          tension: 0.3,
+          yAxisID: 'y'
+        },
+        {
+          label: 'RSS (MB)',
+          data: [],
+          borderColor: '#2196F3',
+          backgroundColor: 'rgba(33, 150, 243, 0.1)',
+          tension: 0.3,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: true, position: 'top' } },
+      scales: {
+        x: { display: true, title: { display: true, text: 'Time (s)' } },
+        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'CPU %' }, min: 0, max: 100 },
+        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'RSS (MB)' }, min: 0, grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  uploadChart = createChart('uploadChart');
+  reencryptChart = createChart('reencryptChart');
+  renderClients();
+  syncAdminGK();
+});
+
+async function uploadFolder() {
+  const input = document.getElementById('folderInput');
+  const files = Array.from(input.files);
+  const gk = document.getElementById('gk_admin_upload').value;
+  const out = document.getElementById('upload_folder_result');
+
+  if (!files.length) { out.textContent = '❌ Please select a folder'; out.classList.add('error'); return; }
+  if (gk.length !== 16) { out.textContent = '❌ GK must be exactly 16 characters'; out.classList.add('error'); return; }
+
+  out.textContent = `⏳ Uploading ${files.length} files...`;
+  out.classList.remove('error');
+  
+  // Reset chart
+  uploadChart.data.labels = [];
+  uploadChart.data.datasets[0].data = [];
+  uploadChart.data.datasets[1].data = [];
+  uploadChart.update();
+  
+  const start = performance.now();
+  let statsInterval = setInterval(async () => {
+    try {
+      const r = await fetch('http://localhost:5001/admin/stats');
+      const s = await r.json();
+      if (r.ok) {
+        const elapsed = (performance.now() - start) / 1000;
+        const rss = s.rss_bytes / 1024 / 1024;
+        uploadChart.data.labels.push(elapsed.toFixed(1));
+        uploadChart.data.datasets[0].data.push(s.cpu_percent);
+        uploadChart.data.datasets[1].data.push(rss);
+        if (uploadChart.data.labels.length > 30) {
+          uploadChart.data.labels.shift();
+          uploadChart.data.datasets[0].data.shift();
+          uploadChart.data.datasets[1].data.shift();
+        }
+        uploadChart.update();
+      }
+    } catch {}
+    const elapsed = (performance.now() - start) / 1000;
+    document.getElementById('uploadTimer').textContent = `Elapsed: ${elapsed.toFixed(1)}s`;
+  }, 1000);
+
+  let success = 0, failed = 0;
+  for (const f of files) {
+    try {
+      const form = new FormData();
+      form.append('file', f);
+      form.append('gk', gk);
+      const r = await fetch('http://localhost:5001/write', { method: 'POST', body: form });
+      if (r.ok) success++; else failed++;
+      const pct = Math.round(((success + failed) / files.length) * 100);
+      document.getElementById('uploadProgressBar').style.width = pct + '%';
+      // Small delay to avoid overwhelming the backend
+      await sleep(50);
+    } catch (e) {
+      failed++;
+    }
+  }
+  clearInterval(statsInterval);
+  const totalElapsed = (performance.now() - start) / 1000;
+  document.getElementById('uploadTimer').textContent = `Total: ${totalElapsed.toFixed(1)}s`;
+  out.textContent = `✅ Done. Uploaded: ${success}, Failed: ${failed}`;
+}
+
+async function loadBuckets() {
+  try {
+    const resp = await fetch('http://localhost:5002/admin/list_all');
+    const data = await resp.json();
+    console.log('[DEBUG] Total objects received:', data.buckets?.[0]?.objects?.length);
+    console.log('[DEBUG] Pages fetched:', data.buckets?.[0]?._page_count);
+    const bucketList = document.getElementById('bucketList');
+    bucketList.innerHTML = '';
+    (data.buckets || []).forEach(b => {
+      const li = document.createElement('li');
+      li.style.cssText = 'cursor:pointer; padding:4px; margin:2px 0; border-radius:3px;';
+      li.textContent = `${b.bucket} (${b.objects?.length || 0} objects)`;
+      li.onmouseover = () => li.style.background = '#e3f2fd';
+      li.onmouseout = () => li.style.background = '';
+      li.onclick = () => loadPrefixes(b.bucket, b.objects);
+      bucketList.appendChild(li);
+    });
+  } catch (e) {
+    console.error('Error loading buckets:', e);
+  }
+}
+
+function loadPrefixes(bucket, objects) {
+  const prefixes = Array.from(new Set(objects
+    .filter(k => k.includes('/') && !k.startsWith('_'))
+    .map(k => k.split('/')[0])
+  )).sort();
+  
+  const prefixList = document.getElementById('prefixList');
+  const objectList = document.getElementById('objectList');
+  prefixList.innerHTML = '';
+  objectList.innerHTML = '<li style="color:#999;"><em>Select a prefix</em></li>';
+  
+  prefixes.forEach(p => {
+    const li = document.createElement('li');
+    li.style.cssText = 'cursor:pointer; padding:4px; margin:2px 0; border-radius:3px;';
+    li.textContent = p;
+    li.onmouseover = () => li.style.background = '#e3f2fd';
+    li.onmouseout = () => li.style.background = '';
+    li.onclick = () => loadObjects(p, objects);
+    prefixList.appendChild(li);
+  });
+}
+
+function loadObjects(prefix, allObjects) {
+  const filtered = allObjects.filter(o => o.startsWith(prefix + '/'));
+  console.log(`[DEBUG] Prefix '${prefix}' has ${filtered.length} objects`);
+  const objectList = document.getElementById('objectList');
+  objectList.innerHTML = '';
+  
+  filtered.forEach(o => {
+    const li = document.createElement('li');
+    li.style.cssText = 'padding:2px; margin:1px 0;';
+    li.textContent = o;
+    objectList.appendChild(li);
+  });
+}
+
+async function reencryptAll() {
+  const out = document.getElementById('reencrypt_all_result');
+  const oldGk = document.getElementById('old_gk_all').value;
+  const newGk = document.getElementById('new_gk_all').value;
+  if (oldGk.length !== 16 || newGk.length !== 16) { out.textContent = '❌ Both keys must be 16 chars'; out.classList.add('error'); return; }
+
+  out.textContent = '⏳ Fetching file list...';
+  out.classList.remove('error');
+  
+  try {
+    const listResp = await fetch('http://localhost:5002/list');
+    const listData = await listResp.json();
+    console.log("[DEBUG] /list response:", listData._debug_total, "files total");
+    const allKeys = (listData.files || []);
+    // Derive prefixes (folder names before first '/')
+    const prefixes = Array.from(new Set(allKeys
+      .filter(k => k.includes('/') && !k.startsWith('_'))
+      .map(k => k.split('/')[0])
+    ));
+    
+    if (!prefixes.length) { out.textContent = '❌ No files found to re-encrypt'; out.classList.add('error'); return; }
+    
+    // Reset chart
+    reencryptChart.data.labels = [];
+    reencryptChart.data.datasets[0].data = [];
+    reencryptChart.data.datasets[1].data = [];
+    reencryptChart.update();
+    
+    const start = performance.now();
+    let statsInterval = setInterval(async () => {
+      try {
+        const r = await fetch('http://localhost:5003/admin/stats');
+        const s = await r.json();
+        if (r.ok) {
+          const elapsed = (performance.now() - start) / 1000;
+          const rss = s.rss_bytes / 1024 / 1024;
+          reencryptChart.data.labels.push(elapsed.toFixed(1));
+          reencryptChart.data.datasets[0].data.push(s.cpu_percent);
+          reencryptChart.data.datasets[1].data.push(rss);
+          if (reencryptChart.data.labels.length > 30) {
+            reencryptChart.data.labels.shift();
+            reencryptChart.data.datasets[0].data.shift();
+            reencryptChart.data.datasets[1].data.shift();
+          }
+          reencryptChart.update();
+        }
+      } catch {}
+      const elapsed = (performance.now() - start) / 1000;
+      document.getElementById('reencryptTimer').textContent = `Elapsed: ${elapsed.toFixed(1)}s`;
+    }, 1000);
+
+    let ok = 0, fail = 0;
+    for (const p of prefixes) {
+      console.log("[DEBUG] Processing prefix:", p);
+      const form = new FormData();
+      // The reencrypt API extracts prefix via rsplit('.', 1)[0], so any extension works
+      form.append('filename', p + '.bin');
+      form.append('old_gk', oldGk);
+      form.append('new_gk', newGk);
+      try {
+        const r = await fetch('http://localhost:5003/reencrypt', { method: 'POST', body: form });
+        if (!r.ok) fail++; else ok++;
+        const pct = Math.round(((ok + fail) / prefixes.length) * 100);
+        document.getElementById('reencryptProgressBar').style.width = pct + '%';
+        await sleep(30);
+      } catch (e) { fail++; }
+    }
+    clearInterval(statsInterval);
+    const totalElapsed = (performance.now() - start) / 1000;
+    document.getElementById('reencryptTimer').textContent = `Total: ${totalElapsed.toFixed(1)}s`;
+    
+    // Sync approved clients with new GK
+    try {
+      const syncForm = new FormData();
+      syncForm.append('new_gk', newGk);
+      const syncResp = await fetch('http://localhost:5004/admin/sync_gk', { method: 'POST', body: syncForm });
+      if (syncResp.ok) {
+        const syncData = await syncResp.json();
+        out.textContent = `✅ Re-encrypt finished. OK: ${ok}, Failed: ${fail}\n📡 Synced ${syncData.updated_clients.length} clients with new GK: ${newGk}`;
+        
+        // Update form fields
+        document.getElementById('gk_admin_upload').value = newGk;
+        document.getElementById('old_gk_all').value = newGk;
+        document.getElementById('new_gk_all').value = '';
+      } else {
+        out.textContent = `✅ Re-encrypt finished. OK: ${ok}, Failed: ${fail}\n⚠️ Failed to sync clients with new GK`;
+      }
+    } catch (e) {
+      out.textContent = `✅ Re-encrypt finished. OK: ${ok}, Failed: ${fail}\n⚠️ Could not sync clients: ${e.message}`;
+    }
+  } catch (e) {
+    out.textContent = '❌ Error: ' + e.message; out.classList.add('error');
+  }
+}
+
+// Clients approved/revoked state
+const DEFAULT_APPROVED = ['client1','client2'];
+function loadClientState() {
+  const approved = JSON.parse(localStorage.getItem('approvedClients')||'null') || DEFAULT_APPROVED;
+  const revoked = JSON.parse(localStorage.getItem('revokedClients')||'null') || [];
+  return {approved, revoked};
+}
+function saveClientState(state){
+  localStorage.setItem('approvedClients', JSON.stringify(state.approved));
+  localStorage.setItem('revokedClients', JSON.stringify(state.revoked));
+}
+function renderClients(){
+  const {approved, revoked} = loadClientState();
+  const a = document.getElementById('approvedList');
+  const r = document.getElementById('revokedList');
+  a.innerHTML=''; r.innerHTML='';
+  approved.forEach(c=>{
+    const li=document.createElement('li');
+    li.innerHTML = `👤 ${c} <button style="margin-left:8px;" onclick="revokeClient('${c}')">→</button>`;
+    a.appendChild(li);
+  });
+  revoked.forEach(c=>{
+    const li=document.createElement('li');
+    li.innerHTML = `👤 ${c} <button style="margin-left:8px;" onclick="approveClient('${c}')">←</button>`;
+    r.appendChild(li);
+  });
+}
+async function revokeClient(c){
+  const state = loadClientState();
+  state.approved = state.approved.filter(x=>x!==c);
+  if(!state.revoked.includes(c)) state.revoked.push(c);
+  saveClientState(state);
+  
+  // Sync to backend
+  try {
+    await fetch(`http://localhost:5004/admin/revoke/${c}`, { method: 'POST' });
+    console.log(`✅ Revoked ${c} in database`);
+  } catch (e) {
+    console.error(`Failed to revoke ${c}:`, e);
+  }
+  
+  renderClients();
+  
+  // Auto-reencrypt with random new GK to exclude revoked client
+  const randomGK = Math.random().toString(36).substring(2, 18).padEnd(16, '0').substring(0, 16);
+  document.getElementById('new_gk_all').value = randomGK;
+  console.log(`🔄 Auto-reencrypting with new random GK: ${randomGK}`);
+  
+  // Small delay to ensure UI updates, then trigger reencrypt
+  setTimeout(() => {
+    reencryptAll();
+  }, 500);
+}
+async function approveClient(c){
+  const state = loadClientState();
+  state.revoked = state.revoked.filter(x=>x!==c);
+  if(!state.approved.includes(c)) state.approved.push(c);
+  saveClientState(state);
+  
+  // Sync to backend and update client with current GK
+  try {
+    const currentGK = document.getElementById('old_gk_all').value;
+    const form = new FormData();
+    form.append('new_gk', currentGK);
+    
+    // First approve the client
+    await fetch(`http://localhost:5004/admin/approve/${c}`, { method: 'POST' });
+    
+    // Then sync the current GK to this client
+    const syncResp = await fetch('http://localhost:5004/admin/sync_gk', { method: 'POST', body: form });
+    if (syncResp.ok) {
+      console.log(`✅ Approved ${c} and synced current GK: ${currentGK}`);
+    } else {
+      console.log(`✅ Approved ${c} in database`);
+    }
+  } catch (e) {
+    console.error(`Failed to approve ${c}:`, e);
+  }
+  
+  renderClients();
+}
+</script>
+</body>
+</html>
+</script>
+</body>
+</html>
