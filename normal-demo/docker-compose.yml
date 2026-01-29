@@ -1,11 +1,11 @@
 services:
   localstack:
     image: localstack/localstack:latest
-    container_name: knob_localstack
+    container_name: normal_localstack
     ports:
-      - "4566:4566"   # AWS API
-      - "8080:8080"   # Web UI
-      - "2222:2222"   # SSH access placeholder
+      - "4567:4566"   # AWS API (different port from knob)
+      - "8081:8080"   # Web UI (different port from knob)
+      - "2223:2222"   # SSH access placeholder (different port from knob)
     environment:
       - SERVICES=s3,ec2
       - DEFAULT_REGION=us-east-1
@@ -18,7 +18,7 @@ services:
   write:
     build: ./services/write
     ports:
-      - "5001:5001"
+      - "6001:5001"
     environment:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
@@ -29,7 +29,7 @@ services:
   read:
     build: ./services/read
     ports:
-      - "5002:5002"
+      - "6002:5002"
     environment:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
@@ -40,7 +40,7 @@ services:
   reencrypt:
     build: ./services/reencrypt
     ports:
-      - "5003:5003"
+      - "6003:5003"
     environment:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
@@ -50,7 +50,7 @@ services:
   client_db:
     build: ./services/client_db
     ports:
-      - "5004:5004"
+      - "6004:5004"
 
   web:
     image: python:3.11-slim
@@ -58,6 +58,6 @@ services:
     volumes:
       - ./gui:/gui
     ports:
-      - "8001:8000"
+      - "8002:8000"
     command: python -m http.server 8000
-    container_name: knob_web
+    container_name: normal_web

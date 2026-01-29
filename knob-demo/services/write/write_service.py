@@ -43,8 +43,8 @@ def write():
     # Fetch default super block indices from S3 config (fallback to [0])
     super_indices = get_default_super_indices()
     
-    # Split data into blocks (4KB each)
-    BLOCK_SIZE = 4096
+    # Split data into blocks (512KB each)
+    BLOCK_SIZE = 512 * 1024
     blocks = [data[i:i+BLOCK_SIZE] for i in range(0, len(data), BLOCK_SIZE)]
     
     # Generate random File Key (FK)
@@ -76,20 +76,34 @@ def write():
     # Store metaFK separately
     s3.put_object(Bucket=BUCKET, Key=f"{prefix}/metaFK", Body=metaFK)
     
-    # Store metadata about the file
+    # Store metadata at root of bucket (update global file registry)
+    metadata_key = "_files_metadata.json"
+    try:
+        # Try to read existing metadata
+        obj = s3.get_object(Bucket=BUCKET, Key=metadata_key)
+        global_metadata = json.loads(obj["Body"].read())
+    except:
+        # Create new metadata if doesn't exist
+        global_metadata = {}
+    
+    # Add/update this file's metadata
+    global_metadata[prefix] = {
+        "filename": filename,
+        "num_blocks": len(encrypted_blocks),
+        "super_indices": super_indices
+    }
+    
+    # Save updated metadata
     s3.put_object(
-        Bucket=BUCKET, 
-        Key=f"{prefix}/metadata.json",
-        Body=json.dumps({
-            "filename": filename,
-            "num_blocks": len(encrypted_blocks),
-            "super_indices": super_indices
-        })
+        Bucket=BUCKET,
+        Key=metadata_key,
+        Body=json.dumps(global_metadata, indent=2)
     )
     
     return jsonify({
         "status": "stored",
         "filename": filename,
+        "prefix": prefix,
         "num_blocks": len(encrypted_blocks),
         "super_indices": super_indices
     })

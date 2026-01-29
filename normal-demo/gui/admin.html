@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8" />
-<title>Knob Admin</title>
+<title>Normal Admin</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   /* EDF Design Authority - Official Brand Colors */
@@ -154,7 +154,7 @@
 </head>
 <body>
 <div class="container">
-  <h1>Knob Admin Dashboard</h1>
+  <h1>Normal Admin Dashboard</h1>
 
   <div class="grid" style="grid-template-columns: 1fr 1fr; grid-auto-rows: auto;">
     <!-- Top-Left: Upload with progress/timer/stats -->
@@ -249,7 +249,7 @@ let uploadChart, reencryptChart;
 async function syncAdminGK() {
   try {
     // Fetch current GK from database (use client1 as reference)
-    const resp = await fetch('http://localhost:5004/clients/client1');
+    const resp = await fetch('http://localhost:6004/clients/client1');
     const data = await resp.json();
     if (resp.ok && data.current_gk) {
       document.getElementById('gk_admin_upload').value = data.current_gk;
@@ -328,7 +328,7 @@ async function uploadFolder() {
   const start = performance.now();
   let statsInterval = setInterval(async () => {
     try {
-      const r = await fetch('http://localhost:5001/admin/stats');
+      const r = await fetch('http://localhost:6001/admin/stats');
       const s = await r.json();
       if (r.ok) {
         const elapsed = (performance.now() - start) / 1000;
@@ -354,7 +354,7 @@ async function uploadFolder() {
       const form = new FormData();
       form.append('file', f);
       form.append('gk', gk);
-      const r = await fetch('http://localhost:5001/write', { method: 'POST', body: form });
+      const r = await fetch('http://localhost:6001/write', { method: 'POST', body: form });
       if (r.ok) success++; else failed++;
       const pct = Math.round(((success + failed) / files.length) * 100);
       document.getElementById('uploadProgressBar').style.width = pct + '%';
@@ -372,7 +372,7 @@ async function uploadFolder() {
 
 async function loadBuckets() {
   try {
-    const resp = await fetch('http://localhost:5002/admin/list_all');
+    const resp = await fetch('http://localhost:6002/admin/list_all');
     const data = await resp.json();
     console.log('[DEBUG] Total objects received:', data.buckets?.[0]?.objects?.length);
     console.log('[DEBUG] Pages fetched:', data.buckets?.[0]?._page_count);
@@ -393,39 +393,43 @@ async function loadBuckets() {
 }
 
 function loadPrefixes(bucket, objects) {
-  const prefixes = Array.from(new Set(objects
-    .filter(k => k.includes('/') && !k.startsWith('_'))
-    .map(k => k.split('/')[0])
-  )).sort();
+  // Filter out metadata files and get actual encrypted files
+  const files = objects.filter(k => !k.endsWith('_metadata.json') && !k.startsWith('_')).sort();
   
   const prefixList = document.getElementById('prefixList');
   const objectList = document.getElementById('objectList');
   prefixList.innerHTML = '';
-  objectList.innerHTML = '<li style="color:#999;"><em>Select a prefix</em></li>';
+  objectList.innerHTML = '<li style="color:#999;"><em>Select a file</em></li>';
   
-  prefixes.forEach(p => {
+  files.forEach(f => {
     const li = document.createElement('li');
     li.style.cssText = 'cursor:pointer; padding:4px; margin:2px 0; border-radius:3px;';
-    li.textContent = p;
+    li.textContent = f;
     li.onmouseover = () => li.style.background = '#e3f2fd';
     li.onmouseout = () => li.style.background = '';
-    li.onclick = () => loadObjects(p, objects);
+    li.onclick = () => loadObjects(f, objects);
     prefixList.appendChild(li);
   });
 }
 
-function loadObjects(prefix, allObjects) {
-  const filtered = allObjects.filter(o => o.startsWith(prefix + '/'));
-  console.log(`[DEBUG] Prefix '${prefix}' has ${filtered.length} objects`);
+function loadObjects(filename, allObjects) {
   const objectList = document.getElementById('objectList');
   objectList.innerHTML = '';
   
-  filtered.forEach(o => {
-    const li = document.createElement('li');
-    li.style.cssText = 'padding:2px; margin:1px 0;';
-    li.textContent = o;
-    objectList.appendChild(li);
-  });
+  // Show the file itself
+  const li1 = document.createElement('li');
+  li1.style.cssText = 'padding:2px; margin:1px 0;';
+  li1.textContent = '📄 ' + filename;
+  objectList.appendChild(li1);
+  
+  // Show metadata if exists
+  const metadataKey = filename.replace(/\.[^.]+$/, '_metadata.json');
+  if (allObjects.includes(metadataKey)) {
+    const li2 = document.createElement('li');
+    li2.style.cssText = 'padding:2px; margin:1px 0; color:#666;';
+    li2.textContent = '📋 ' + metadataKey;
+    objectList.appendChild(li2);
+  }
 }
 
 async function reencryptAll() {
@@ -434,41 +438,18 @@ async function reencryptAll() {
   const newGk = document.getElementById('new_gk_all').value;
   if (oldGk.length !== 16 || newGk.length !== 16) { out.textContent = '❌ Both keys must be 16 chars'; out.classList.add('error'); return; }
 
-  out.textContent = '⏳ Fetching file metadata...';
+  out.textContent = '⏳ Fetching file list...';
   out.classList.remove('error');
   
-  try {    // Read global metadata file to get all files and their super_indices
-    let filesData = {};
-    try {
-      // Try to fetch metadata.json from list to get the metadata file key
-      const listResp = await fetch('http://localhost:5002/list');
-      const listData = await listResp.json();
-      const allKeys = (listData.files || []);
-      const metadataKey = allKeys.find(k => k === '_files_metadata.json');
-      
-      if (metadataKey) {
-        // Read the actual metadata content
-        const metadataObj = await fetch('http://localhost:5002/admin/list_all');
-        const buckets = await metadataObj.json();
-        filesData = buckets[0]?.objects?.find(k => k === '_files_metadata.json') ? 
-          (await fetch('data:application/json;base64,' + btoa('dummy'))) : {};
-      }
-    } catch (e) {
-      console.log('[DEBUG] Could not read metadata file, will use empty data:', e);
-    }
-    
-    // Get all encrypted files from list
-    const listResp = await fetch('http://localhost:5002/list');
+  try {
+    const listResp = await fetch('http://localhost:6002/list');
     const listData = await listResp.json();
     console.log("[DEBUG] /list response:", listData._debug_total, "files total");
     const allKeys = (listData.files || []);
-    // Derive prefixes (folder names before first '/')
-    const prefixes = Array.from(new Set(allKeys
-      .filter(k => k.includes('/') && !k.startsWith('_'))
-      .map(k => k.split('/')[0])
-    ));
+    // Filter out metadata files to get actual encrypted files
+    const files = allKeys.filter(k => !k.endsWith('_metadata.json') && !k.startsWith('_'));
     
-    if (!prefixes.length) { out.textContent = '❌ No files found to re-encrypt'; out.classList.add('error'); return; }
+    if (!files.length) { out.textContent = '❌ No files found to re-encrypt'; out.classList.add('error'); return; }
     
     // Reset chart
     reencryptChart.data.labels = [];
@@ -479,7 +460,7 @@ async function reencryptAll() {
     const start = performance.now();
     let statsInterval = setInterval(async () => {
       try {
-        const r = await fetch('http://localhost:5003/admin/stats');
+        const r = await fetch('http://localhost:6003/admin/stats');
         const s = await r.json();
         if (r.ok) {
           const elapsed = (performance.now() - start) / 1000;
@@ -500,18 +481,16 @@ async function reencryptAll() {
     }, 1000);
 
     let ok = 0, fail = 0;
-    for (const p of prefixes) {
-      console.log("[DEBUG] Processing prefix:", p);
+    for (const filename of files) {
+      console.log("[DEBUG] Processing file:", filename);
       const form = new FormData();
-      // The reencrypt API extracts prefix via rsplit('.', 1)[0], so any extension works
-      form.append('filename', p + '.bin');
+      form.append('filename', filename);
       form.append('old_gk', oldGk);
-      form.append('new_gk', newGk);      // Pass super_indices from metadata (default to [0])
-      const fileMetadata = filesData[p] || { super_indices: [0] };
-      form.append('super_indices', JSON.stringify(fileMetadata.super_indices));      try {
-        const r = await fetch('http://localhost:5003/reencrypt', { method: 'POST', body: form });
+      form.append('new_gk', newGk);
+      try {
+        const r = await fetch('http://localhost:6003/reencrypt', { method: 'POST', body: form });
         if (!r.ok) fail++; else ok++;
-        const pct = Math.round(((ok + fail) / prefixes.length) * 100);
+        const pct = Math.round(((ok + fail) / files.length) * 100);
         document.getElementById('reencryptProgressBar').style.width = pct + '%';
         await sleep(30);
       } catch (e) { fail++; }
@@ -524,7 +503,7 @@ async function reencryptAll() {
     try {
       const syncForm = new FormData();
       syncForm.append('new_gk', newGk);
-      const syncResp = await fetch('http://localhost:5004/admin/sync_gk', { method: 'POST', body: syncForm });
+      const syncResp = await fetch('http://localhost:6004/admin/sync_gk', { method: 'POST', body: syncForm });
       if (syncResp.ok) {
         const syncData = await syncResp.json();
         out.textContent = `✅ Re-encrypt finished. OK: ${ok}, Failed: ${fail}\n📡 Synced ${syncData.updated_clients.length} clients with new GK: ${newGk}`;
@@ -579,7 +558,7 @@ async function revokeClient(c){
   
   // Sync to backend
   try {
-    await fetch(`http://localhost:5004/admin/revoke/${c}`, { method: 'POST' });
+    await fetch(`http://localhost:6004/admin/revoke/${c}`, { method: 'POST' });
     console.log(`✅ Revoked ${c} in database`);
   } catch (e) {
     console.error(`Failed to revoke ${c}:`, e);
@@ -610,10 +589,10 @@ async function approveClient(c){
     form.append('new_gk', currentGK);
     
     // First approve the client
-    await fetch(`http://localhost:5004/admin/approve/${c}`, { method: 'POST' });
+    await fetch(`http://localhost:6004/admin/approve/${c}`, { method: 'POST' });
     
     // Then sync the current GK to this client
-    const syncResp = await fetch('http://localhost:5004/admin/sync_gk', { method: 'POST', body: form });
+    const syncResp = await fetch('http://localhost:6004/admin/sync_gk', { method: 'POST', body: form });
     if (syncResp.ok) {
       console.log(`✅ Approved ${c} and synced current GK: ${currentGK}`);
     } else {

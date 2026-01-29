@@ -25,6 +25,13 @@ def reencrypt():
     filename = request.form.get("filename", "")
     old_gk = request.form.get("old_gk", "").encode()  # Old Group Key
     new_gk = request.form.get("new_gk", "").encode()  # New Group Key
+    super_indices_str = request.form.get("super_indices", "[]")
+    
+    # Parse super_indices from JSON array string
+    try:
+        super_indices = json.loads(super_indices_str)
+    except:
+        super_indices = [0]  # Fallback to default
     
     if not filename:
         return jsonify({"error": "filename is required"}), 400
@@ -35,21 +42,33 @@ def reencrypt():
     
     # Determine prefix from filename
     prefix = filename.rsplit('.', 1)[0]
-    sys.stderr.write(f"[DEBUG /reencrypt] Processing prefix: {prefix}\n")
+    sys.stderr.write(f"[DEBUG /reencrypt] Processing prefix: {prefix}, super_indices: {super_indices}\n")
     sys.stderr.flush()
-    
-    # Retrieve metadata
+
+    # Load global metadata to validate block indices
+    num_blocks = None
     try:
-        metadata_obj = s3.get_object(Bucket=BUCKET, Key=f"{prefix}/metadata.json")
-        metadata = json.loads(metadata_obj["Body"].read())
-        num_blocks = metadata["num_blocks"]
-        super_indices = metadata.get("super_indices", [0])
-    except:
-        return jsonify({"error": "File not found or invalid metadata"}), 404
+        metadata_obj = s3.get_object(Bucket=BUCKET, Key="_files_metadata.json")
+        global_metadata = json.loads(metadata_obj["Body"].read())
+        file_meta = global_metadata.get(prefix)
+        if file_meta:
+            num_blocks = file_meta.get("num_blocks")
+    except Exception:
+        num_blocks = None
     
-    # Re-encrypt only the super block indices
+    # Re-encrypt only the specified super block indices
     for idx in super_indices:
-        if 0 <= idx < num_blocks:
+        try:
+            idx = int(idx)
+        except Exception:
+            continue
+
+        if num_blocks is not None:
+            valid = 0 <= idx < num_blocks
+        else:
+            valid = 0 <= idx < 999999  # Fallback sanity check
+
+        if valid:
             try:
                 # Retrieve the super block
                 block_obj = s3.get_object(Bucket=BUCKET, Key=f"{prefix}/block_{idx}")
@@ -65,14 +84,14 @@ def reencrypt():
                 s3.put_object(Bucket=BUCKET, Key=f"{prefix}/block_{idx}", Body=reencrypted)
             except Exception as e:
                 return jsonify({"error": f"Failed to re-encrypt block {idx}: {str(e)}"}), 500
-    
+
     return jsonify({
-        "status": "re-encrypted",
-        "filename": filename,
-        "super_indices": super_indices,
-        "num_reencrypted": len(super_indices)
+        "status": "reencrypted",
+        "prefix": prefix,
+        "super_indices": super_indices
     })
 
+                
 @app.route("/admin/stats", methods=["GET"])
 def admin_stats():
     try:

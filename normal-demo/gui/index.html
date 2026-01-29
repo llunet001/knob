@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: Arial; margin: 20px; }
+  .container { max-width: 900px; margin: 0 auto; }
+  .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9; }
+  .section h3 { margin-top: 0; color: #333; }
+  .form-group { margin: 10px 0; }
+  label { display: inline-block; width: 120px; font-weight: bold; }
+  input { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 3px; }
+  button { padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer; margin: 5px 0; }
+  button:hover { background: #45a049; }
+  .result { margin-top: 15px; padding: 10px; background: #f0f0f0; border-left: 4px solid #4CAF50; border-radius: 3px; white-space: pre-wrap; word-break: break-all; font-family: monospace; font-size: 12px; }
+  .error { border-left-color: #f44336; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Knob Image Bank</h1>
+
+  <!-- WRITE/UPLOAD SERVICE -->
+  <div class="section">
+    <h3>📤 Upload File (Write)</h3>
+    <div class="form-group">
+      <label>File:</label>
+      <input type="file" id="file">
+    </div>
+    <div class="form-group">
+      <label>Group Key (GK):</label>
+      <input type="text" id="gk_write" placeholder="16 characters" value="1234567890123456" maxlength="16">
+    </div>
+    <button onclick="upload()">Upload</button>
+    <div class="result" id="upload_result"></div>
+  </div>
+
+  <!-- READ SERVICE -->
+  <div class="section">
+    <h3>📥 Read File (Download)</h3>
+    <div class="form-group">
+      <label>Filename:</label>
+      <input type="text" id="filename_read" placeholder="e.g., image.jpg">
+    </div>
+    <div class="form-group">
+      <label>Group Key (GK):</label>
+      <input type="text" id="gk_read" placeholder="16 characters" value="1234567890123456" maxlength="16">
+    </div>
+    <button onclick="read()">Download</button>
+    <div class="result" id="read_result"></div>
+  </div>
+
+  <!-- RE-ENCRYPT SERVICE -->
+  <div class="section">
+    <h3>🔄 Re-encrypt File</h3>
+    <div class="form-group">
+      <label>Filename:</label>
+      <input type="text" id="filename_reencrypt" placeholder="e.g., image.jpg">
+    </div>
+    <div class="form-group">
+      <label>Old Group Key:</label>
+      <input type="text" id="old_gk" placeholder="16 characters" value="1234567890123456" maxlength="16">
+    </div>
+    <div class="form-group">
+      <label>New Group Key:</label>
+      <input type="text" id="new_gk" placeholder="16 characters" value="abcdefghijklmnop" maxlength="16">
+    </div>
+    <button onclick="reencrypt()">Re-encrypt Super Blocks</button>
+    <div class="result" id="reencrypt_result"></div>
+  </div>
+
+  <!-- LIST FILES -->
+  <div class="section">
+    <h3>📋 List Stored Files</h3>
+    <button onclick="listFiles()">Refresh List</button>
+    <div class="result" id="list_result"></div>
+  </div>
+</div>
+
+<script>
+// WRITE SERVICE
+async function upload() {
+  const file = document.getElementById("file").files[0];
+  const gk = document.getElementById("gk_write").value;
+  const resultDiv = document.getElementById("upload_result");
+  
+  if (!file) {
+    resultDiv.textContent = "❌ Please select a file";
+    resultDiv.classList.add("error");
+    return;
+  }
+  
+  if (gk.length !== 16) {
+    resultDiv.textContent = "❌ GK must be exactly 16 characters";
+    resultDiv.classList.add("error");
+    return;
+  }
+  
+  const form = new FormData();
+  form.append("file", file);
+  form.append("GK", gk);
+  
+  resultDiv.textContent = "⏳ Uploading...";
+  resultDiv.classList.remove("error");
+  
+  try {
+    const response = await fetch("http://localhost:6001/write", {
+      method: "POST",
+      body: form
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      resultDiv.textContent = "✅ Upload Success!\n" + JSON.stringify(data, null, 2);
+      resultDiv.classList.remove("error");
+    } else {
+      const error = await response.json();
+      resultDiv.textContent = "❌ Upload Failed!\n" + JSON.stringify(error, null, 2);
+      resultDiv.classList.add("error");
+    }
+  } catch (e) {
+    resultDiv.textContent = "❌ Error: " + e.message;
+    resultDiv.classList.add("error");
+  }
+}
+
+// READ SERVICE
+async function read() {
+  const filename = document.getElementById("filename_read").value;
+  const gk = document.getElementById("gk_read").value;
+  const resultDiv = document.getElementById("read_result");
+  
+  if (!filename) {
+    resultDiv.textContent = "❌ Please enter a filename";
+    resultDiv.classList.add("error");
+    return;
+  }
+  
+  if (gk.length !== 16) {
+    resultDiv.textContent = "❌ GK must be exactly 16 characters";
+    resultDiv.classList.add("error");
+    return;
+  }
+  
+  const form = new FormData();
+  form.append("filename", filename);
+  form.append("GK", gk);
+  
+  resultDiv.textContent = "⏳ Downloading...";
+  resultDiv.classList.remove("error");
+  
+  try {
+    const response = await fetch("http://localhost:6002/read", {
+      method: "POST",
+      body: form
+    });
+    
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      resultDiv.textContent = "✅ Download Success!\nFile: " + filename;
+      resultDiv.classList.remove("error");
+    } else {
+      const error = await response.json();
+      resultDiv.textContent = "❌ Download Failed!\n" + JSON.stringify(error, null, 2);
+      resultDiv.classList.add("error");
+    }
+  } catch (e) {
+    resultDiv.textContent = "❌ Error: " + e.message;
+    resultDiv.classList.add("error");
+  }
+}
+
+// RE-ENCRYPT SERVICE
+async function reencrypt() {
+  const filename = document.getElementById("filename_reencrypt").value;
+  const oldGk = document.getElementById("old_gk").value;
+  const newGk = document.getElementById("new_gk").value;
+  const resultDiv = document.getElementById("reencrypt_result");
+  
+  if (!filename) {
+    resultDiv.textContent = "❌ Please enter a filename";
+    resultDiv.classList.add("error");
+    return;
+  }
+  
+  if (oldGk.length !== 16) {
+    resultDiv.textContent = "❌ Old GK must be exactly 16 characters";
+    resultDiv.classList.add("error");
+    return;
+  }
+  
+  if (newGk.length !== 16) {
+    resultDiv.textContent = "❌ New GK must be exactly 16 characters";
+    resultDiv.classList.add("error");
+    return;
+  }
+  
+  const form = new FormData();
+  form.append("filename", filename);
+  form.append("old_gk", oldGk);
+  form.append("new_gk", newGk);
+  
+  resultDiv.textContent = "⏳ Re-encrypting...";
+  resultDiv.classList.remove("error");
+  
+  try {
+    const response = await fetch("http://localhost:6003/reencrypt", {
+      method: "POST",
+      body: form
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      resultDiv.textContent = "✅ Re-encrypt Success!\n" + JSON.stringify(data, null, 2);
+      resultDiv.classList.remove("error");
+    } else {
+      const error = await response.json();
+      resultDiv.textContent = "❌ Re-encrypt Failed!\n" + JSON.stringify(error, null, 2);
+      resultDiv.classList.add("error");
+    }
+  } catch (e) {
+    resultDiv.textContent = "❌ Error: " + e.message;
+    resultDiv.classList.add("error");
+  }
+}
+
+// LIST FILES
+async function listFiles() {
+  const resultDiv = document.getElementById("list_result");
+  resultDiv.textContent = "⏳ Loading...";
+  resultDiv.classList.remove("error");
+  
+  try {
+    const response = await fetch("http://localhost:6002/list");
+    if (response.ok) {
+      const data = await response.json();
+      const files = data.files || [];
+      const fileList = files
+        .filter(f => !f.includes("_config"))
+        .filter(f => f.endsWith(".json") || f.includes("/block_"))
+        .map(f => f.split("/")[0])
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .join("\n");
+      
+      resultDiv.textContent = "✅ Files in bucket:\n" + (fileList || "(empty)");
+      resultDiv.classList.remove("error");
+    } else {
+      resultDiv.textContent = "❌ Failed to list files";
+      resultDiv.classList.add("error");
+    }
+  } catch (e) {
+    resultDiv.textContent = "❌ Error: " + e.message;
+    resultDiv.classList.add("error");
+  }
+}
+</script>
+</body>
+</html>

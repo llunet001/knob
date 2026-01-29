@@ -1,0 +1,106 @@
+services:
+  # KNOB Demo Services (ports 5000-5099)
+  knob_localstack:
+    image: localstack/localstack:latest
+    container_name: knob_localstack
+    ports:
+      - "4566:4566"   # AWS API
+      - "8080:8080"   # Web UI
+    environment:
+      - SERVICES=s3,ec2
+      - DEFAULT_REGION=us-east-1
+      - EC2_VM_MANAGER=docker
+      - LOCALSTACK_WEB_UI=true
+    volumes:
+      - ./knob-demo/localstack-init/ready.d:/etc/localstack/init/ready.d
+
+  knob_write:
+    build: ./knob-demo/services/write
+    ports:
+      - "5001:5001"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - knob_localstack
+
+  knob_read:
+    build: ./knob-demo/services/read
+    ports:
+      - "5002:5002"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - knob_localstack
+
+  knob_reencrypt:
+    build: ./knob-demo/services/reencrypt
+    ports:
+      - "5003:5003"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - knob_localstack
+
+  knob_client_db:
+    build: ./knob-demo/services/client_db
+    ports:
+      - "5004:5004"
+
+  # Normal Demo Services (ports 6000-6099)
+  normal_localstack:
+    image: localstack/localstack:latest
+    container_name: normal_localstack
+    ports:
+      - "4567:4566"   # AWS API on different host port
+      - "8081:8080"   # Web UI on different host port
+    environment:
+      - SERVICES=s3,ec2
+      - DEFAULT_REGION=us-east-1
+      - EC2_VM_MANAGER=docker
+      - LOCALSTACK_WEB_UI=true
+    volumes:
+      - ./normal-demo/localstack-init/ready.d:/etc/localstack/init/ready.d
+
+  normal_write:
+    build: ./normal-demo/services/write
+    ports:
+      - "6001:5001"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - normal_localstack
+
+  normal_read:
+    build: ./normal-demo/services/read
+    ports:
+      - "6002:5002"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - normal_localstack
+
+  normal_reencrypt:
+    build: ./normal-demo/services/reencrypt
+    ports:
+      - "6003:5003"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - normal_localstack
+
+  normal_client_db:
+    build: ./normal-demo/services/client_db
+    ports:
+      - "6004:5004"
